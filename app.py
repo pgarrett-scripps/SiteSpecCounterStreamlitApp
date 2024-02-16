@@ -35,7 +35,6 @@ protein = st.text_area("Enter a protein sequence", value=fetched_protein)
 
 HEADER = ['unique', 'sequence', 'spec count', 'confidence (%)', 'scan', 'charge', 'evaluation', 'fileName', 'primary score', 'DeltCN', 'M+H+(calculated)', 'M+H+(measured)', 'm/z(calculated)', 'm/z(measured)', 'ppm', 'RetTime']
 
-
 if len(files) != 0 and protein is not None:
 
     protein = protein.replace('\n', '').replace('\r', '').replace(' ', '')
@@ -68,7 +67,7 @@ if len(files) != 0 and protein is not None:
     df = df[df['Modifications'].notna()]
 
     # Define a Site column
-    df['Site'] = df['Modifications'].apply(lambda x: x[0])
+    df['Site'] = df['Modifications'].apply(lambda x: x[0] + 1)
 
     # Define a Modification column
     df['Modification'] = df['Modifications'].apply(lambda x: x[1])
