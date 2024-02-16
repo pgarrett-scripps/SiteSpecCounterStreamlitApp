@@ -1,5 +1,6 @@
 from collections import Counter
 
+import requests
 import streamlit as st
 import pandas as pd
 from peptacular.sequence import strip_modifications, get_modifications
@@ -11,18 +12,40 @@ st.set_page_config(page_title="Site Spec Counter")
 st.title('Site Spec Counter :syringe:')
 st.write('This app counts the number of spectra for each modification at each site in a protein sequence')
 
+def fetch_sequence_from_uniprot(accession_number):
+    url = f"https://www.uniprot.org/uniprot/{accession_number}.fasta"
+    response = requests.get(url)
+    if response.status_code != 200:
+        return None
+    return ''.join(response.text.split('\n')[1:])  # Remove the header line
 
-f = st.file_uploader("Upload a file")
-protein = st.text_area("Enter a protein sequence")
+files = st.file_uploader("Upload a file", type=["csv"], accept_multiple_files=True)
 
-if f is not None and protein is not None:
+protein_id = st.text_input("Enter a protein ID (e.g. P02769)")
+
+fetched_protein = ''
+if protein_id:
+    try:
+        fetched_protein = fetch_sequence_from_uniprot(protein_id)
+    except:
+        st.error("Failed to fetch protein sequence from Uniprot")
+        st.stop()
+
+protein = st.text_area("Enter a protein sequence", value=fetched_protein)
+
+HEADER = ['unique', 'sequence', 'spec count', 'confidence (%)', 'scan', 'charge', 'evaluation', 'fileName', 'primary score', 'DeltCN', 'M+H+(calculated)', 'M+H+(measured)', 'm/z(calculated)', 'm/z(measured)', 'ppm', 'RetTime']
+
+
+if len(files) != 0 and protein is not None:
 
     protein = protein.replace('\n', '').replace('\r', '').replace(' ', '')
 
-    if f.name.endswith('.xlsx'):
-        df = pd.read_excel(f)
-    else:
-        df = pd.read_csv(f)
+    dfs = []
+    for f in files:
+        df = pd.read_csv(f, sep=',', header=None, names=HEADER)
+        dfs.append(df)
+
+    df = pd.concat(dfs)
 
     df['Peptide'] = [sequence[2:-2] for sequence in df['sequence']]
     df['Stripped.Peptide'] = df['Peptide'].apply(strip_modifications)
