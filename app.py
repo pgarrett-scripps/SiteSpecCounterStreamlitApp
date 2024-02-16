@@ -5,6 +5,13 @@ import pandas as pd
 from peptacular.sequence import strip_modifications, get_modifications
 from peptacular.protein import find_peptide_indexes
 
+# make wide
+st.set_page_config(page_title="Site Spec Counter")
+
+st.title('Site Spec Counter :syringe:')
+st.write('This app counts the number of spectra for each modification at each site in a protein sequence')
+
+
 f = st.file_uploader("Upload a file")
 protein = st.text_area("Enter a protein sequence")
 
@@ -28,25 +35,27 @@ if f is not None and protein is not None:
     # add Protein.Index to modifications
     df['Modifications'] = df.apply(lambda row: {row['Protein.Index'] + i: mod for i, mod in row['Modifications'].items()}, axis=1)
 
-    # now for each file, I want to accumulate all modification
-    mod_per_file = {}
-    for file in df['fileName']:
-        mod_counter = Counter()
-        file_df = df[df['fileName'] == file]
-        spec_count = file_df.shape[0]
-        for mods, spec_count in file_df[['Modifications', 'spec count']].values:
-            for i, mod in mods.items():
-                mod_counter[mod] += spec_count
+    # make modifications a list of tuples
+    df['Modifications'] = df['Modifications'].apply(lambda mods: [(site, mod) for site, mod in mods.items()])
 
-        mod_per_file[file] = mod_counter
+    # explode the modifications
+    df = df.explode('Modifications')
 
-    mod_data = []
-    for file, mod_counter in mod_per_file.items():
-        for mod, count in mod_counter.items():
-            mod_data.append({'file': file, 'mod': mod, 'count': count})
+    # remove rows with no modifications
+    df = df[df['Modifications'].notna()]
 
-    mod_df = pd.DataFrame(mod_data)
-    st.dataframe(mod_df)
+    # Define a Site column
+    df['Site'] = df['Modifications'].apply(lambda x: x[0])
 
+    # Define a Modification column
+    df['Modification'] = df['Modifications'].apply(lambda x: x[1])
 
+    # Define a spec count column
+    st.subheader('Raw data')
+    st.dataframe(df, use_container_width=True)
 
+    # sum the spec count for each modification per site
+    df = df.groupby(['fileName', 'Modification', 'Site']).agg({'spec count': 'sum'}).reset_index()
+
+    st.subheader('Spec Counts')
+    st.dataframe(df, use_container_width=True)
